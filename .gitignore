@@ -38,3 +38,6 @@ Praat.app
 .Rdata
 .Rhistory
 .Rproj.user
+
+# WebAssembly experiment
+wasm/build/

@@ -1,0 +1,22 @@
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Praat WASM worker probe</title>
+<style>body{font:16px system-ui;max-width:760px;margin:40px auto;padding:20px;background:#111827;color:#e5e7eb}button{padding:12px;font:inherit}pre{white-space:pre-wrap}</style>
+<h1>Praat WASM worker probe</h1><p>Runs the upstream spectrogram function on a one-second 1 kHz tone in a browser worker. No microphone access.</p><button id="run">Run worker test</button><pre id="result" role="status">Ready.</pre>
+<script>
+const run=document.getElementById('run'),result=document.getElementById('result');
+run.onclick=()=>{
+ run.disabled=true;result.textContent='Loading WASM and analysing…';
+ const worker=new Worker('worker.js'),pcm=new Float32Array(44100),start=performance.now();
+ for(let i=0;i<pcm.length;i++)pcm[i]=.2*Math.sin(2*Math.PI*1000*i/44100);
+ const timeout=setTimeout(()=>finish('FAIL: worker timed out'),30000);
+ function finish(message){clearTimeout(timeout);worker.terminate();result.textContent=message;run.disabled=false}
+ worker.onerror=e=>finish('FAIL: '+e.message);
+ worker.onmessage=({data})=>{
+  if(data.error){finish('FAIL: '+data.error);return}
+  let peak=0;for(let i=1;i<data.bins;i++)if(data.power[i]>data.power[peak])peak=i;
+  const peakHz=data.firstFrequency+peak*data.frequencyStep;
+  const pass=data.frames===191&&data.bins===325&&Math.abs(peakHz-1000)<12;
+  finish((pass?'PASS':'FAIL')+'\n'+JSON.stringify({frames:data.frames,bins:data.bins,peakHz,elapsedIncludingLoadMs:Math.round(performance.now()-start)},null,2));
+ };
+ worker.postMessage({id:1,pcm,sampleRate:44100},[pcm.buffer]);
+};
+</script>
